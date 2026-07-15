@@ -1,226 +1,150 @@
-> [!IMPORTANT]
-> **Project Update: Consolidation into the Unified LocalStack Image**
->
-> To provide a more reliable and streamlined experience, we are consolidating our development into a single, unified image. As part of this transition, this repository is now **archived and read-only**.
->
-> This decision reflects our commitment to reducing fragmentation and focusing our resources on building the most robust AWS emulation layer possible. We are deeply grateful to the contributors who helped make this project into what it is today–your work remains integral to the future of the LocalStack ecosystem.
->
-> What this means for your workflow:
->
-> - LocalStack for AWS offers a [range of options](https://www.localstack.cloud/pricing) including a free Hobby plan for non-commercial use with the same capabilities as this project.
-> - Your input is still vital to us. Please continue to share [bug reports here](https://github.com/orgs/localstack/discussions/categories/bugs) and [submit feature requests here](https://github.com/orgs/localstack/discussions/categories/feature-requests) or join our [Slack Community](https://slack.localstack.cloud).
->
-> Thank you for your continued support as we grow together.
+# ShadowStack
 
-<p align="center">
-  <img src="docs/localstack-readme-banner.svg" alt="LocalStack - The Leading Platform for Local Cloud Development">
-</p>
+> Un gemelo digital para infraestructura cloud en AWS — sincroniza, simula y detecta riesgos antes de llegar a producción.
 
-<p align="center">
-  <a href="https://github.com/localstack/localstack/actions/workflows/aws-main.yml?query=branch%3Amain"><img alt="GitHub Actions" src="https://github.com/localstack/localstack/actions/workflows/aws-main.yml/badge.svg?branch=main"></a>
-  <a href="https://coveralls.io/github/localstack/localstack?branch=main"><img alt="Coverage Status" src="https://coveralls.io/repos/github/localstack/localstack/badge.svg?branch=main"></a>
-  <a href="https://pypi.org/project/localstack/"><img alt="PyPI Version" src="https://img.shields.io/pypi/v/localstack?color=blue"></a>
-  <a href="https://hub.docker.com/r/localstack/localstack"><img alt="Docker Pulls" src="https://img.shields.io/docker/pulls/localstack/localstack"></a>
-  <a href="https://pypi.org/project/localstack"><img alt="PyPi downloads" src="https://static.pepy.tech/badge/localstack"></a>
-  <a href="https://img.shields.io/pypi/l/localstack.svg"><img alt="PyPI License" src="https://img.shields.io/pypi/l/localstack.svg"></a>
-  <a href="https://github.com/psf/black"><img alt="Code style: black" src="https://img.shields.io/badge/code%20style-black-000000.svg"></a>
-  <a href="https://github.com/astral-sh/ruff"><img alt="Ruff" src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json"></a>
-  <a href="https://bsky.app/profile/localstack.cloud"><img alt="Bluesky" src="https://img.shields.io/badge/bluesky-Follow-blue?logo=bluesky"></a>
-</p>
-
-<p align="center">
-  LocalStack is a cloud software development framework to develop and test your AWS applications locally.
-</p>
-
-<p align="center">
-  <a href="#overview">Overview</a> •
-  <a href="#install">Install</a> •
-  <a href="#quickstart">Quickstart</a> •
-  <a href="#running">Run</a> •
-  <a href="#usage">Usage</a> •
-  <a href="#releases">Releases</a> •
-  <a href="#contributing">Contributing</a>
-  <br/>
-  <a href="https://docs.localstack.cloud" target="_blank">📖 Docs</a> •
-  <a href="https://www.localstack.cloud/localstack-for-aws" target="_blank">💻 LocalStack for AWS</a> •
-  <a href="https://docs.localstack.cloud/references/coverage/" target="_blank">☑️ LocalStack coverage</a>
-</p>
+ShadowStack replica tu infraestructura real de AWS en un entorno local con [LocalStack](https://localstack.cloud/), aplica los cambios de Terraform propuestos sobre la réplica, y ejecuta un agente de IA (con LangGraph) que analiza los logs y eventos resultantes para producir un reporte de riesgos — sin tocar tu cuenta de producción.
 
 ---
 
-# Overview
+## Cómo funciona
 
-[LocalStack](https://localstack.cloud) is a cloud service emulator that runs in a single container on your laptop or in your CI environment. With LocalStack, you can run your AWS applications or Lambdas entirely on your local machine without connecting to a remote cloud provider! Whether you are testing complex CDK applications or Terraform configurations, or just beginning to learn about AWS services, LocalStack helps speed up and simplify your testing and development workflow.
+```
+Tus archivos .tf (modificados)
+        │
+        ▼
+  terraform plan          ← identifica qué recursos van a cambiar
+        │
+        ▼
+  shadowstack sync        ← lee el estado real de AWS y replica todo
+        │                    EXCEPTO los recursos en el diff
+        ▼
+  shadowstack apply       ← aplica solo los cambios propuestos en LocalStack
+        │
+        ▼
+  shadowstack report      ← el agente lee los logs, clasifica riesgos
+                             y produce un reporte estructurado
+```
 
-LocalStack supports a growing number of AWS services, like AWS Lambda, S3, DynamoDB, Kinesis, SQS, SNS, and many more! The [Pro version of LocalStack](https://localstack.cloud/pricing) supports additional APIs and advanced features. You can find a comprehensive list of supported APIs on our [☑️ Feature Coverage](https://docs.localstack.cloud/user-guide/aws/feature-coverage/) page.
+---
 
-LocalStack also provides additional features to make your life as a cloud developer easier! Check out LocalStack's [User Guides](https://docs.localstack.cloud/user-guide/) for more information.
+## Arquitectura
 
-## Install
+<img width="500" alt="image" src="https://github.com/user-attachments/assets/c1bc1138-6b5a-4334-be73-0ac2f1e36265" />
 
-The quickest way to get started with LocalStack is by using the LocalStack CLI. It enables you to start and manage the LocalStack Docker container directly through your command line. Ensure that your machine has a functional [`docker` environment](https://docs.docker.com/get-docker/) installed before proceeding.
 
-### Brew (macOS or Linux with Homebrew)
+El sistema tiene cuatro componentes principales:
 
-Install the LocalStack CLI through our [official LocalStack Brew Tap](https://github.com/localstack/homebrew-tap):
+| Componente | Descripción |
+|---|---|
+| **Sync Engine** | Lee el estado de Lambda, API Gateway y DynamoDB desde AWS y lo replica en LocalStack, omitiendo los recursos marcados en el plan de Terraform |
+| **Diff Parser** | Parsea el `plan.json` de Terraform para extraer el conjunto de recursos que serán modificados, creados o eliminados |
+| **Entorno LocalStack** | Fork de LocalStack configurado para emular Lambda, API Gateway y DynamoDB en el entorno experimental |
+| **Agente LangGraph** | Agente multi-nodo que ingiere logs y eventos del run en LocalStack, clasifica tipos de riesgo y genera un reporte estructurado con advertencias y recomendaciones |
+
+---
+
+## Alcance del prototipo
+
+Este prototipo se enfoca en tres servicios de AWS:
+
+- **AWS Lambda** — configuración de funciones, memoria, timeout, runtime
+- **Amazon API Gateway** — rutas, integraciones, autorización
+- **Amazon DynamoDB** — esquema de tablas, modo de facturación, capacidad, índices
+
+
+Fuera del alcance de este prototipo: datos de costo en tiempo real, modelado de tráfico de usuarios, servicios fuera de los tres anteriores.
+
+---
+
+## Referencia del CLI
+
+ShadowStack se opera mediante un CLI construido con [Typer](https://typer.tiangolo.com/).
 
 ```bash
-brew install localstack/tap/localstack-cli
+# Sincronizar el estado de AWS en LocalStack (excluyendo los recursos del plan)
+shadowstack sync --plan plan.json
+
+# Aplicar los cambios de Terraform propuestos sobre LocalStack
+shadowstack apply --plan plan.json
+
+# Ejecutar el agente LangGraph y producir el reporte de riesgos
+shadowstack report --output reporte.md
+
+# Ejecutar el pipeline completo en un solo comando
+shadowstack run --plan plan.json --output reporte.md
 ```
 
-### Binary download (macOS, Linux, Windows)
+---
 
-If Brew is not installed on your machine, you can download the pre-built LocalStack CLI binary directly:
+## Inicio rápido
 
-- Visit [localstack/localstack-cli](https://github.com/localstack/localstack-cli/releases/latest) and download the latest release for your platform.
-- Extract the downloaded archive to a directory included in your `PATH` variable:
-  - For macOS/Linux, use the command: `sudo tar xvzf ~/Downloads/localstack-cli-*-darwin-*-onefile.tar.gz -C /usr/local/bin`
+### Requisitos previos
 
-### PyPI (macOS, Linux, Windows)
+- [Terraform](https://developer.hashicorp.com/terraform/install) >= 1.5
+- [Docker](https://www.docker.com/) (requerido por LocalStack)
+- Credenciales de AWS configuradas (`aws configure`) — acceso de solo lectura es suficiente para el paso de sincronización
+- Licencia de LocalStack Pro o Community (ver [localstack.cloud](https://localstack.cloud/))
 
-LocalStack is developed using Python. To install the LocalStack CLI using `pip`, run the following command:
+---
+
+## Casos de prueba
+
+Se incluyen dos casos de prueba base en `infra/` para validar la capacidad de detección de riesgos del agente.
+
+### Caso 01 — Reducción de memoria en Lambda
+
+**Cambio:** `memory_size` reducida de 512 MB a 128 MB en una Lambda que procesa archivos.  
+**Riesgo esperado:** El agente detecta errores de out-of-memory en los logs de LocalStack y advierte que la reducción de memoria puede causar fallos bajo cargas de trabajo reales.
 
 ```bash
-python3 -m pip install localstack
+cd infra/caso_01_lambda_memoria
+terraform plan -out=plan.tfplan && terraform show -json plan.tfplan > plan.json
+shadowstack run --plan plan.json --output reporte.md
 ```
 
-The `localstack-cli` installation enables you to run the Docker image containing the LocalStack runtime. To interact with the local AWS services, you need to install the `awslocal` CLI separately. For installation guidelines, refer to the [`awslocal` documentation](https://docs.localstack.cloud/user-guide/integrations/aws-cli/#localstack-aws-cli-awslocal).
+### Caso 02 — Cambio de modo de facturación en DynamoDB
 
-> **Important**: Do not use `sudo` or run as `root` user. LocalStack must be installed and started entirely under a local non-root user. If you have problems with permissions in macOS High Sierra, install with `pip install --user localstack`
-
-## Quickstart
-
-Start LocalStack inside a Docker container by running:
+**Cambio:** Modo de facturación de la tabla cambiado de `PAY_PER_REQUEST` a `PROVISIONED` con `read_capacity = 1` y `write_capacity = 1`.  
+**Riesgo esperado:** El agente detecta eventos `ProvisionedThroughputExceededException` y advierte que la capacidad provisionada es insuficiente para el volumen de escrituras observado.
 
 ```bash
- % localstack start -d
-
-     __                     _______ __             __
-    / /   ____  _________ _/ / ___// /_____ ______/ /__
-   / /   / __ \/ ___/ __ `/ /\__ \/ __/ __ `/ ___/ //_/
-  / /___/ /_/ / /__/ /_/ / /___/ / /_/ /_/ / /__/ ,<
- /_____/\____/\___/\__,_/_//____/\__/\__,_/\___/_/|_|
-
-- LocalStack CLI: 4.9.0
-- Profile: default
-- App: https://app.localstack.cloud
-
-[17:00:15] starting LocalStack in Docker mode 🐳               localstack.py:512
-           preparing environment                               bootstrap.py:1322
-           configuring container                               bootstrap.py:1330
-           starting container                                  bootstrap.py:1340
-[17:00:16] detaching                                           bootstrap.py:1344
+cd infra/caso_02_dynamo_facturacion
+terraform plan -out=plan.tfplan && terraform show -json plan.tfplan > plan.json
+shadowstack run --plan plan.json --output reporte.md
 ```
 
-You can query the status of respective services on LocalStack by running:
+---
 
-```bash
-% localstack status services
-┏━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━┓
-┃ Service                  ┃ Status      ┃
-┡━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━┩
-│ acm                      │ ✔ available │
-│ apigateway               │ ✔ available │
-│ cloudformation           │ ✔ available │
-│ cloudwatch               │ ✔ available │
-│ config                   │ ✔ available │
-│ dynamodb                 │ ✔ available │
-...
+## Formato del reporte de riesgos (Boceto inicial)
+
+El agente produce un reporte estructurado en markdown con las siguientes secciones:
+
+```markdown
+# Reporte de riesgos — ShadowStack
+
+## Resumen
+- Recursos analizados: N
+- Riesgos detectados: N
+- Nivel de riesgo general: ALTO / MEDIO / BAJO
+
+## Riesgos detectados
+
+### [ALTO] Memoria insuficiente en Lambda — nombre-funcion
+**Recurso:** aws_lambda_function.procesar_archivos  
+**Cambio:** memory_size 512 → 128  
+**Evidencia:** Error de out-of-memory en log de ejecución (timestamp)  
+**Recomendación:** Mantener memory_size ≥ 256 MB para cargas de trabajo con procesamiento de archivos.
+
+## Cambios seguros
+- (lista de cambios que no produjeron errores ni advertencias)
 ```
 
-To use SQS, a fully managed distributed message queuing service, on LocalStack, run:
+---
 
-```shell
-% awslocal sqs create-queue --queue-name sample-queue
-{
-    "QueueUrl": "http://sqs.us-east-1.localhost.localstack.cloud:4566/000000000000/sample-queue"
-}
-```
+## Contexto de investigación
 
-Learn more about [LocalStack AWS services](https://docs.localstack.cloud/references/coverage/) and using them with LocalStack's `awslocal` CLI.
+ShadowStack se desarrolla como parte de una tesis de maestría en la **Escuela Colombiana de Ingeniería Julio Garavito** (Maestría en Informatica con enfasis en Ingenieria de software avanzado), en el marco del proyecto:
 
-## Running
+> *"Prototipo de gemelo digital para infraestructura cloud en AWS con agente de IA: sincronización basada en observabilidad para simulación segura de cambios y análisis predictivo de riesgos"*
 
-You can run LocalStack through the following options:
-
-- [LocalStack CLI](https://docs.localstack.cloud/getting-started/installation/#localstack-cli)
-- [Docker](https://docs.localstack.cloud/getting-started/installation/#docker)
-- [Docker Compose](https://docs.localstack.cloud/getting-started/installation/#docker-compose)
-- [Helm](https://docs.localstack.cloud/getting-started/installation/#helm)
-
-## Usage
-
-To start using LocalStack, check out our [documentation](https://docs.localstack.cloud).
-
-- [LocalStack Configuration](https://docs.localstack.cloud/references/configuration/)
-- [LocalStack in CI](https://docs.localstack.cloud/user-guide/ci/)
-- [LocalStack Integrations](https://docs.localstack.cloud/user-guide/integrations/)
-- [LocalStack Tools](https://docs.localstack.cloud/user-guide/tools/)
-- [Understanding LocalStack](https://docs.localstack.cloud/references/)
-- [Frequently Asked Questions](https://docs.localstack.cloud/getting-started/faq/)
-
-To use LocalStack with a graphical user interface, you can use the following UI clients:
-
-- [LocalStack Web Application](https://app.localstack.cloud)
-- [LocalStack Desktop](https://docs.localstack.cloud/user-guide/tools/localstack-desktop/)
-- [LocalStack Docker Extension](https://docs.localstack.cloud/user-guide/tools/localstack-docker-extension/)
-
-## Releases
-
-Please refer to [GitHub releases](https://github.com/localstack/localstack/releases) to see the complete list of changes for each release. For extended release notes, please refer to the [changelog](https://docs.localstack.cloud/references/changelog/).
-
-## Contributing
-
-If you are interested in contributing to LocalStack:
-
-- Start by reading our [contributing guide](docs/CONTRIBUTING.md).
-- Check out our [development environment setup guide](docs/development-environment-setup/README.md).
-- Navigate our codebase and [open issues](https://github.com/localstack/localstack/issues).
-
-We are thankful for all the contributions and feedback we receive.
-
-## Get in touch
-
-Get in touch with the LocalStack Team to
-report 🐞 [issues](https://github.com/localstack/localstack/issues/new/choose),
-upvote 👍 [feature requests](https://github.com/localstack/localstack/issues?q=is%3Aissue+is%3Aopen+sort%3Areactions-%2B1-desc+),
-🙋🏽 ask [support questions](https://docs.localstack.cloud/getting-started/help-and-support/),
-or 🗣️ discuss local cloud development:
-
-- [LocalStack Slack Community](https://localstack.cloud/slack/)
-- [LocalStack GitHub Issue tracker](https://github.com/localstack/localstack/issues)
-
-### Contributors
-
-We are thankful to all the people who have contributed to this project.
-
-<a href="https://github.com/localstack/localstack/graphs/contributors"><img src="https://opencollective.com/localstack/contributors.svg?width=890" /></a>
-
-### Backers
-
-We are also grateful to all our backers who have donated to the project. You can become a backer on [Open Collective](https://opencollective.com/localstack#backer).
-
-<a href="https://opencollective.com/localstack#backers" target="_blank"><img src="https://opencollective.com/localstack/backers.svg?width=890"></a>
-
-### Sponsors
-
-You can also support this project by becoming a sponsor on [Open Collective](https://opencollective.com/localstack#sponsor). Your logo will show up here along with a link to your website.
-
-<a href="https://opencollective.com/localstack/sponsor/0/website" target="_blank"><img src="https://opencollective.com/localstack/sponsor/0/avatar.svg"></a>
-<a href="https://opencollective.com/localstack/sponsor/1/website" target="_blank"><img src="https://opencollective.com/localstack/sponsor/1/avatar.svg"></a>
-<a href="https://opencollective.com/localstack/sponsor/2/website" target="_blank"><img src="https://opencollective.com/localstack/sponsor/2/avatar.svg"></a>
-<a href="https://opencollective.com/localstack/sponsor/3/website" target="_blank"><img src="https://opencollective.com/localstack/sponsor/3/avatar.svg"></a>
-<a href="https://opencollective.com/localstack/sponsor/4/website" target="_blank"><img src="https://opencollective.com/localstack/sponsor/4/avatar.svg"></a>
-<a href="https://opencollective.com/localstack/sponsor/5/website" target="_blank"><img src="https://opencollective.com/localstack/sponsor/5/avatar.svg"></a>
-<a href="https://opencollective.com/localstack/sponsor/6/website" target="_blank"><img src="https://opencollective.com/localstack/sponsor/6/avatar.svg"></a>
-<a href="https://opencollective.com/localstack/sponsor/7/website" target="_blank"><img src="https://opencollective.com/localstack/sponsor/7/avatar.svg"></a>
-<a href="https://opencollective.com/localstack/sponsor/8/website" target="_blank"><img src="https://opencollective.com/localstack/sponsor/8/avatar.svg"></a>
-<a href="https://opencollective.com/localstack/sponsor/9/website" target="_blank"><img src="https://opencollective.com/localstack/sponsor/9/avatar.svg"></a>
-
-## License
-
-Copyright (c) 2017-2026 LocalStack maintainers and contributors.
-
-Copyright (c) 2016 Atlassian and others.
-
-This version of LocalStack is released under the Apache License, Version 2.0 (see [LICENSE](LICENSE.txt)). By downloading and using this software you agree to the [End-User License Agreement (EULA)](docs/end_user_license_agreement).
+El prototipo sirve como fundamento práctico para la investigación sobre gemelos digitales y análisis predictivo de riesgos en infraestructura cloud.
