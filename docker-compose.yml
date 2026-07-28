@@ -1,0 +1,31 @@
+services:
+  localstack:
+    container_name: shadowstack-localstack
+    image: localstack/localstack:latest
+    ports:
+      - "127.0.0.1:4566:4566"            # Gateway edge port (todos los servicios)
+      - "127.0.0.1:4510-4559:4510-4559"   # Puertos externos para servicios que los requieren
+    environment:
+      # Servicios en scope del prototipo (sección 4.1 del documento de contexto)
+      - SERVICES=lambda,apigateway,dynamodb,cloudwatch,logs,iam,sts
+      - DEBUG=${DEBUG:-0}
+      - PERSISTENCE=1
+      - LAMBDA_EXECUTOR=docker
+      - DOCKER_HOST=unix:///var/run/docker.sock
+      # Credenciales dummy para LocalStack (no son reales, solo requeridas por boto3/Terraform)
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_DEFAULT_REGION=us-east-1
+    volumes:
+      - "shadowstack-localstack-data:/var/lib/localstack"
+      - "/var/run/docker.sock:/var/run/docker.sock"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
+volumes:
+  shadowstack-localstack-data:
+    driver: local
