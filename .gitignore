@@ -12,4 +12,5 @@ plan.json
 .terraform/
 *.tfstate
 *.tfstate.backup
+infra/**/build/
 .DS_Store

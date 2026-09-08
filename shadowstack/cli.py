@@ -2,6 +2,7 @@
 CLI de ShadowStack (Typer).
 
 Comandos previstos (sección 3.1 del documento de contexto):
+    shadowstack sync                    # pull completo (bootstrap del gemelo)
     shadowstack sync --plan plan.json
     shadowstack apply --plan plan.json
     shadowstack report --output reporte.md
@@ -59,12 +60,20 @@ def doctor() -> None:
 
 @app.command()
 def sync(
-    plan: str = typer.Option(..., "--plan", help="Ruta al plan.json de Terraform"),
+    plan: str | None = typer.Option(
+        None,
+        "--plan",
+        help="Ruta al plan.json de Terraform. Si se omite, se hace un pull completo "
+        "(bootstrap del gemelo), equivalente a pasar --full.",
+    ),
     full: bool = typer.Option(
         False, "--full", help="Sincroniza toda la infraestructura, ignorando la exclusión del diff"
     ),
 ) -> None:
     """Sincroniza AWS real → LocalStack (excluyendo por defecto los recursos del diff)."""
+    if plan is None:
+        full = True
+
     console.print("[yellow]Aún no implementado — sub-bloque A/B, semanas 2-5.[/yellow]")
     console.print(f"plan={plan} full={full}")
 

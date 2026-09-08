@@ -16,6 +16,8 @@ services:
       - AWS_ACCESS_KEY_ID=test
       - AWS_SECRET_ACCESS_KEY=test
       - AWS_DEFAULT_REGION=us-east-1
+      # Requerido por LocalStack desde 2024 para activar la licencia (gratis, ver README)
+      - LOCALSTACK_AUTH_TOKEN=${LOCALSTACK_AUTH_TOKEN}
     volumes:
       - "shadowstack-localstack-data:/var/lib/localstack"
       - "/var/run/docker.sock:/var/run/docker.sock"

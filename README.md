@@ -69,6 +69,17 @@ shadowstack/
 └── pyproject.toml
 ```
 
+## Decisiones de diseño
+
+- **`shadowstack sync` sin `--plan` = pull completo.** Por defecto, `sync --plan
+  plan.json` excluye del pull los recursos que el plan va a cambiar
+  (`PlanDiff.changed_addresses`): esos recursos los debe crear/modificar
+  `apply` ejecutando Terraform directamente contra el gemelo, no una copia
+  genérica de AWS real, para evitar que dos mecanismos administren el mismo
+  recurso. Como `--plan` no tiene sentido para un pull que no está atado a
+  ningún cambio (p. ej. el primer poblado del gemelo), omitir `--plan`
+  equivale a pasar `--full`: trae todo, sin exclusiones.
+
 ## Próximos pasos (cronograma Fase 2)
 
 | Semana | Entregable |

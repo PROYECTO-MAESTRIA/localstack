@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(shadowstack doctor *)",
+      "Bash(.venv/Scripts/shadowstack.exe doctor *)",
+      "Bash(.venv/Scripts/python.exe -m pytest tests/test_diff_parser.py -v)",
+      "Bash(.venv/Scripts/python.exe -m pytest -v)"
+    ]
+  }
+}
