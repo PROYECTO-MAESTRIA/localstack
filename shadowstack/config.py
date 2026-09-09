@@ -14,7 +14,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 LOCALSTACK_ENDPOINT = os.getenv("LOCALSTACK_ENDPOINT", "http://localhost:4566")
-LOCALSTACK_REGION = os.getenv("AWS_DEFAULT_REGION", "us-east-1")
+LOCALSTACK_REGION = os.getenv("AWS_DEFAULT_REGION", "us-east-2")
 
 # Servicios en scope del prototipo (sección 4.1 del documento de contexto)
 LOCALSTACK_SERVICES = ["lambda", "apigateway", "dynamodb", "cloudwatch", "logs"]
@@ -50,6 +50,6 @@ def real_aws_client(service_name: str) -> BaseClient:
     """
     session = boto3.Session(
         profile_name=os.getenv("AWS_REAL_PROFILE") or None,
-        region_name=os.getenv("AWS_REAL_REGION", "us-east-1"),
+        region_name=os.getenv("AWS_REAL_REGION", "us-east-2"),
     )
     return session.client(service_name)

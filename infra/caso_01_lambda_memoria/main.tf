@@ -1,6 +1,25 @@
 provider "aws" {
   region  = var.aws_region
-  profile = var.aws_profile
+  profile = var.use_localstack ? null : var.aws_profile
+
+  # Credenciales dummy y endpoints redirigidos al gemelo digital (LocalStack),
+  # el mismo mecanismo que usará `shadowstack apply` para simular cambios
+  # sin tocar AWS real.
+  access_key                  = var.use_localstack ? "test" : null
+  secret_key                  = var.use_localstack ? "test" : null
+  skip_credentials_validation = var.use_localstack
+  skip_metadata_api_check     = var.use_localstack
+  skip_requesting_account_id  = var.use_localstack
+
+  endpoints {
+    lambda     = var.use_localstack ? "http://localhost:4566" : null
+    iam        = var.use_localstack ? "http://localhost:4566" : null
+    sts        = var.use_localstack ? "http://localhost:4566" : null
+    cloudwatch = var.use_localstack ? "http://localhost:4566" : null
+    logs       = var.use_localstack ? "http://localhost:4566" : null
+    apigateway = var.use_localstack ? "http://localhost:4566" : null
+    dynamodb   = var.use_localstack ? "http://localhost:4566" : null
+  }
 }
 
 data "archive_file" "lambda_source" {

@@ -48,3 +48,36 @@ en tu cuenta real:
 ```bash
 terraform destroy -var="aws_profile=<tu-profile>"
 ```
+
+## 5. Crear la misma Lambda en el gemelo digital (LocalStack)
+
+Este mismo código puede crear los recursos en LocalStack en vez de AWS real,
+usando `use_localstack=true` — es el mecanismo que usará `shadowstack apply`
+para simular cambios sin tocar producción.
+
+Como el workspace `default` ya tiene el estado de la Lambda real, usamos un
+**workspace de Terraform separado** para no mezclar los dos estados:
+
+```bash
+# Requiere LocalStack corriendo: docker compose up -d (desde la raíz del repo)
+terraform workspace new localstack   # solo la primera vez
+terraform workspace select localstack
+
+terraform apply -var="use_localstack=true"
+```
+
+No hace falta `aws_profile` (se ignora) ni credenciales reales — usa las
+credenciales dummy `test`/`test`, igual que boto3 en `config.py`.
+
+Para verificar que la Lambda quedó en el gemelo:
+
+```bash
+cd ../..
+python -c "from shadowstack.config import localstack_client; print(localstack_client('lambda').list_functions()['Functions'])"
+```
+
+Para volver a trabajar con el estado de AWS real:
+
+```bash
+terraform workspace select default
+```
