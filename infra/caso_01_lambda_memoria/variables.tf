@@ -11,9 +11,8 @@ variable "aws_profile" {
 }
 
 variable "use_localstack" {
-  description = "Si es true, este mismo código crea los recursos en el gemelo digital (LocalStack, http://localhost:4566) en vez de en AWS real. Es el mismo mecanismo que usará `shadowstack apply`."
+  description = "true = crea los recursos en el gemelo digital (LocalStack); false = crea en AWS real. SIN DEFAULT A PROPÓSITO: pasarlo siempre explícito con -var, para no aplicar por accidente contra el destino equivocado (ver README, sección 5 vs. secciones 1-4)."
   type        = bool
-  default     = true
 }
 
 variable "function_name" {

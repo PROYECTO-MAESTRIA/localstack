@@ -50,6 +50,6 @@ def real_aws_client(service_name: str) -> BaseClient:
     """
     session = boto3.Session(
         profile_name=os.getenv("AWS_REAL_PROFILE") or None,
-        region_name=os.getenv("AWS_REAL_REGION", "us-east-2"),
+        region_name=os.getenv("AWS_REAL_REGION"),
     )
     return session.client(service_name)

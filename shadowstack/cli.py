@@ -18,6 +18,9 @@ from rich.console import Console
 from rich.table import Table
 
 from shadowstack.config import LOCALSTACK_ENDPOINT, localstack_client
+from shadowstack.sync.aws_reader import read_lambda_functions
+from shadowstack.sync.diff_parser import parse_plan
+from shadowstack.sync.localstack_writer import write_lambda_function
 
 app = typer.Typer(help="ShadowStack — gemelo digital para infraestructura AWS")
 console = Console()
@@ -74,8 +77,34 @@ def sync(
     if plan is None:
         full = True
 
-    console.print("[yellow]Aún no implementado — sub-bloque A/B, semanas 2-5.[/yellow]")
-    console.print(f"plan={plan} full={full}")
+    excluded_function_names: set[str] = set()
+    if not full:
+        diff = parse_plan(plan)
+        for change in diff.resource_changes:
+            if change.resource_type != "aws_lambda_function" or change.address not in diff.changed_addresses:
+                continue
+            attrs = change.after or change.before or {}
+            if attrs.get("function_name"):
+                excluded_function_names.add(attrs["function_name"])
+
+    console.print("[dim]Leyendo funciones Lambda de AWS real...[/dim]")
+    functions = read_lambda_functions()
+
+    table = Table(title="shadowstack sync — Lambda")
+    table.add_column("Función")
+    table.add_column("Acción")
+
+    for state in functions:
+        if state.function_name in excluded_function_names:
+            table.add_row(state.function_name, "[yellow]excluida (parte del diff)[/yellow]")
+            continue
+        write_lambda_function(state)
+        table.add_row(state.function_name, "[green]sincronizada[/green]")
+
+    console.print(table)
+    console.print(
+        "\n[dim]Nota: por ahora solo sincroniza Lambda. apigateway/dynamodb aún no están conectados.[/dim]"
+    )
 
 
 @app.command()

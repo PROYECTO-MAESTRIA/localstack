@@ -52,6 +52,44 @@ pytest -m requires_localstack -v
 pytest -m "not requires_localstack" -v
 ```
 
+## Consultar recursos en el gemelo digital (LocalStack)
+
+Para inspeccionar qué hay creado en LocalStack sin escribir Python, usa la
+`aws` CLI apuntando a su endpoint, con las credenciales dummy (setéalas una
+vez por sesión de terminal):
+
+```bash
+# PowerShell
+$env:AWS_ACCESS_KEY_ID="test"
+$env:AWS_SECRET_ACCESS_KEY="test"
+
+# bash
+export AWS_ACCESS_KEY_ID=test
+export AWS_SECRET_ACCESS_KEY=test
+```
+
+```bash
+aws --endpoint-url=http://localhost:4566 lambda list-functions --region us-east-2
+aws --endpoint-url=http://localhost:4566 dynamodb list-tables --region us-east-2
+aws --endpoint-url=http://localhost:4566 apigateway get-rest-apis --region us-east-2
+```
+
+> No uses `awslocal` (el wrapper de LocalStack) en Windows: falla con
+> `RuntimeError: Could not determine home directory` por un bug de
+> compatibilidad con AWS CLI v2. El `aws` directo de arriba funciona igual.
+
+Desde Python, es más simple reutilizar el cliente ya configurado del proyecto
+(usa el endpoint/región de `.env` automáticamente):
+
+```bash
+python -c "from shadowstack.config import localstack_client; print(localstack_client('lambda').list_functions()['Functions'])"
+```
+
+**Nota:** LocalStack Community no persiste de forma confiable recursos como
+Lambda entre reinicios del contenedor (`docker compose down && up`), aunque
+`PERSISTENCE=1` esté activo. Si tras un reinicio una consulta viene vacía,
+recrea el caso de prueba correspondiente (ver `infra/*/README.md`).
+
 ## Estructura del repositorio
 
 ```

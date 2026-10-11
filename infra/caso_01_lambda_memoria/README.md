@@ -9,12 +9,17 @@ Requiere un profile de AWS CLI con permisos de **escritura** (Lambda, IAM) —
 distinto del profile de solo lectura que usa ShadowStack (`AWS_REAL_PROFILE`
 en `.env`) para leer el estado real.
 
+> `use_localstack` no tiene default a propósito — SIEMPRE pásalo explícito
+> (`true` o `false`) en cada `plan`/`apply`/`destroy`. Omitirlo es un error
+> de Terraform, no un accidente silencioso hacia el destino equivocado.
+
 ## 1. Desplegar el estado base (memoria baja)
 
 ```bash
 cd infra/caso_01_lambda_memoria
+terraform workspace select default   # AWS real
 terraform init
-terraform apply -var="aws_profile=<tu-profile-con-permisos-de-escritura>"
+terraform apply -var="use_localstack=false" -var="aws_profile=<tu-profile-con-permisos-de-escritura>"
 ```
 
 Esto crea la Lambda en tu cuenta real de AWS con `memory_size = 128`.
@@ -24,7 +29,7 @@ Esto crea la Lambda en tu cuenta real de AWS con `memory_size = 128`.
 Sube el valor de memoria y pide un plan (sin aplicarlo):
 
 ```bash
-terraform plan -var="aws_profile=<tu-profile>" -var="memory_size=512" -out=tfplan
+terraform plan -var="use_localstack=false" -var="aws_profile=<tu-profile>" -var="memory_size=512" -out=tfplan
 terraform show -json tfplan > ../../plan.json
 ```
 
@@ -46,7 +51,7 @@ Cuando termines de probar, destruye el recurso para no dejar nada corriendo
 en tu cuenta real:
 
 ```bash
-terraform destroy -var="aws_profile=<tu-profile>"
+terraform destroy -var="use_localstack=false" -var="aws_profile=<tu-profile>"
 ```
 
 ## 5. Crear la misma Lambda en el gemelo digital (LocalStack)
